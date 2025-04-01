@@ -1,6 +1,6 @@
-# 100knock2024 in 桂井研
+# 100knock2025 in 桂井研
 
-桂井研2024年度新入生向け勉強会として、言語処理100本ノックに取り組みます。  
+桂井研2025年度新入生向け勉強会として、言語処理100本ノックに取り組みます。  
 教材URL: https://nlp100.github.io/ja/
 
 毎週1章分（10問）解いてください。   
@@ -10,7 +10,7 @@
 初回はこのレポジトリを clone してください。
 
 ```
-git clone https://github.com/potama2002/IML2024.git
+git clone https://github.com/potama2002/IML2025K.git
 ```
 
 コードを書いたら remote repository に push してください。
