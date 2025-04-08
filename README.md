@@ -1,7 +1,7 @@
 # 100knock2025 in 桂井研
 
 桂井研2025年度新入生向け勉強会として、言語処理100本ノックに取り組みます。  
-教材URL: https://nlp100.github.io/ja/
+教材URL: https://nlp100.github.io/2025/ja/index.html
 
 毎週1章分（10問）解いてください。   
 
