@@ -1,11 +1,15 @@
-def ngram(s,n):
-    return [s[idx:idx+n]for idx in range(len(s)-n+1)]
+def ngram(sentence,n):
+    
+    return [sentence[idx:idx+n]for idx in range(len(sentence)-n+1)]
 
-s='I am an NLPer'
-print(ngram(s,3))
+sentence="I am an NLPer"
+print(ngram(sentence,1))
+print(ngram(sentence,2))
+print(ngram(sentence,3))
 
-word=s.split(' ')
-print(ngram(s,1))
-
+word=sentence.split(' ')
+print(ngram(word,1))
+print(ngram(word,2))
+print(ngram(word,3))
 
 
