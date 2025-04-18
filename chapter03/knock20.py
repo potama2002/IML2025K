@@ -1,12 +1,14 @@
-import json
 import gzip
+import json
 
-def load_uk():
-    # UTF-8 で開くようにする！
-    with gzip.open('jawiki-country.json.gz', 'rt', encoding='utf-8') as file:
-        for item in file:
-            d = json.loads(item)
-            if d['title'] == 'イギリス':
-                return d['text']
+# ファイルパス（ダウンロードしてローカルに保存したパスを指定）
+file_path = '/Users/takeru/Downloads/src‘ę3¸Ķ/Moriyama/chapter03/jawiki-country.json.gz'
 
-print(load_uk())
+# イギリスの記事を探す
+with gzip.open(file_path, 'rt', encoding='utf-8') as f: #ファイルのオープン・クローズを自動で行ってくれる構文。
+    for line in f:#ファイルオブジェクト f から 1行ずつ ループで取り出します。
+        article = json.loads(line) #json.loads() は、JSON形式の文字列をPythonの辞書に変換します。
+        if article['title'] == 'イギリス': 
+            print(article['text'])  # 記事の本文を表示
+            break
+

@@ -1,25 +1,33 @@
-import json
 import gzip
-import re  # ← ここを忘れずに！
+import json
+import re
 
-def load_uk():
-    with gzip.open('jawiki-country.json.gz', 'rt', encoding='utf-8') as file:
-        for item in file:
-            d = json.loads(item)
-            if d['title'] == 'イギリス':
-                return d['text']
+# 20: イギリスの記事を抽出
+file_path = '/Users/takeru/Downloads/src‘ę3¸Ķ/Moriyama/chapter03/jawiki-country.json.gz'
 
-def extract_sects():
-    # セクション名と = の数を取得
-    tuples = re.findall(r'(={2,})\s*([^\s=]+).*', load_uk())
+uk_text = ''
+with gzip.open(file_path, 'rt', encoding='utf-8') as f:
+    for line in f:
+        article = json.loads(line)
+        if article['title'] == 'イギリス':
+            uk_text = article['text'] # イギリス記事の本文（text）を uk_text に保存。
+            break
 
-    sects = []
-    for t in tuples:
-        level = len(t[0]) - 1  # = の数 - 1 が階層レベル
-        sects.append([t[1], level])
 
-    return sects
+# 23: セクション構造
+for line in uk_text.split('\n'):
+    match = re.match(r'(={2,})\s*(.+?)\s*\1', line)
+    if match:
+        level = len(match.group(1)) - 1
+        title = match.group(2)
+        print('{} (level {})'.format(title, level))
 
-# 出力（1行ずつ表示）
-for name, level in extract_sects():
-    print(f'{name} (レベル{level})')
+"""
+(={2,})     → グループ1：「==」以上の `=` の連続（最低2個）
+\s*         → 任意の空白（あってもなくてもOK）
+(.+?)       → グループ2：セクション名（非貪欲）
+\s*         → セクション名の後の空白も許容
+\1          → 最初と同じ数の `=` で閉じる（グループ1と同じ）
+
+
+"""

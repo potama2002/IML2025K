@@ -1,27 +1,61 @@
-import json
 import gzip
+import json
 import re
 
-def load_uk():
-    with gzip.open('jawiki-country.json.gz', 'rt', encoding='utf-8') as file:
-        for line in file:
-            article = json.loads(line)
-            if article['title'] == 'イギリス':
-                return article['text']
+# 20: イギリスの記事を抽出
+file_path = '/Users/takeru/Downloads/src‘ę3¸Ķ/Moriyama/chapter03/jawiki-country.json.gz'
 
-def extract_template():
-    data = re.search(r'\{\{基礎情報.*?\n\}\}', load_uk(), re.DOTALL).group()
-    tuples = re.findall(r'\n\|(.+?)\s*=\s*(.+?)(?=(?:\n\||\n\}\}))', data, re.DOTALL)
-    return dict(tuples)
+uk_text = ''
+with gzip.open(file_path, 'rt', encoding='utf-8') as f:
+    for line in f:
+        article = json.loads(line)
+        if article['title'] == 'イギリス':
+            uk_text = article['text']
+            break
 
-def remove_emphases():
-    d = extract_template()
-    return {key: re.sub(r"'{2,5}", '', val) for key, val in d.items()}
+# 25: テンプレートの抽出と辞書化
+template_match = re.search(r'{{基礎情報 国(.*?)\n}}', uk_text, re.DOTALL)
 
-def remove_links():
-    d = remove_emphases()
-    return {key: re.sub(r'\[\[.*?\|?(.+?)\]\]', r'\1', val) for key, val in d.items()}
+if template_match:
+    template_text = template_match.group(1)
+    info_dict = {}
 
-# 結果を表示
-for k, v in remove_links().items():
-    print(f'{k}: {v}\n')
+    for line in template_text.split('\n|')[1:]:
+        key_value_match = re.match(r'([^=]+?)\s*=\s*(.*)', line)
+        if key_value_match:
+            key = key_value_match.group(1).strip()
+            value = key_value_match.group(2).strip()
+            info_dict[key] = value
+
+# 26: 強調マークアップの除去
+cleaned_dict = {}
+
+for key, value in info_dict.items():
+    cleaned_value = re.sub(r"'{2,5}", '', value)
+
+    cleaned_dict[key] = cleaned_value
+
+for key, value in cleaned_dict.items():
+    print('{}: {}'.format(key, value))
+
+
+#27 内部リンクの除去
+
+linked_dict = {}
+
+for key, value in cleaned_dict.items():
+    # [[記事名|表示名]] → 表示名 を残す（または 記事名）
+    # - \[\[     : [[ を文字としてマッチ（エスケープ必要）
+    # - ([^|\]]+) : パイプまたは ] が出るまでの文字列（記事名）
+    # - (?:\|([^|\]]*))? : パイプの後に表示名があれば取る（あってもなくてもOK）
+    # - \]\]     : ]] で閉じる
+    # → 表示名があればそれを、なければ記事名を使う
+    replaced = re.sub(r'\[\[([^|\]]+)(?:\|([^|\]]*))?\]\]',
+                      lambda m: m.group(2) if m.group(2) else m.group(1),
+                      value)
+
+    linked_dict[key] = replaced
+
+# 表示
+for key, value in linked_dict.items():
+    print('{}: {}'.format(key, value))

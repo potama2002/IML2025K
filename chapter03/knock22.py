@@ -1,16 +1,35 @@
-import json
 import gzip
-import re  # ← これを忘れてた！
+import json
+import re
 
-def load_uk():
-    with gzip.open('jawiki-country.json.gz', 'rt', encoding='utf-8') as file:
-        for item in file:
-            d = json.loads(item)
-            if d['title'] == 'イギリス':
-                return d['text']
+# 20: イギリスの記事を抽出
+file_path = '/Users/takeru/Downloads/src‘ę3¸Ķ/Moriyama/chapter03/jawiki-country.json.gz'
 
-def extract_categs():
-    return re.findall(r'\[\[Category:(.*?)(\|.*)?\]\]', load_uk())
+uk_text = ''
+with gzip.open(file_path, 'rt', encoding='utf-8') as f:
+    for line in f:
+        article = json.loads(line)
+        if article['title'] == 'イギリス':
+            uk_text = article['text'] # イギリス記事の本文（text）を uk_text に保存。
+            break
 
-# カテゴリ名だけを抽出して1行ずつ表示
-print(*[match[0] for match in extract_categs()], sep='\n')
+
+# 22: カテゴリ名の抽出
+
+for line in uk_text.split('\n'):
+    match = re.search(r'\[\[Category:(.*?)(\|.*)?\]\]', line)
+    if match:
+        print(match.group(1))
+
+"""
+if match:
+re.search(...) がマッチした場合は match にマッチオブジェクトが入る。
+
+マッチしなかったら None になる。
+
+つまり「カテゴリを含む行」だけを処理対象とするための条件分岐。
+
+
+.group(1) → (.*?) でマッチした文字列だけを抽出。
+
+"""
