@@ -1,25 +1,19 @@
-import json
+import re
 import gzip
-import re  # ← ここを忘れずに！
+import json
 
-def load_uk():
-    with gzip.open('jawiki-country.json.gz', 'rt', encoding='utf-8') as file:
-        for item in file:
-            d = json.loads(item)
-            if d['title'] == 'イギリス':
-                return d['text']
+def extract_uk_article(file_path):
+    with gzip.open(file_path, 'rt', encoding='utf-8') as f:
+        for line in f:
+            data = json.loads(line)
+            if data.get('title') == 'イギリス':
+                return data.get('text')
 
-def extract_sects():
-    # セクション名と = の数を取得
-    tuples = re.findall(r'(={2,})\s*([^\s=]+).*', load_uk())
+file_path = 'jawiki-country.json.gz'
+uk_text = extract_uk_article(file_path)
 
-    sects = []
-    for t in tuples:
-        level = len(t[0]) - 1  # = の数 - 1 が階層レベル
-        sects.append([t[1], level])
+def extract_sections(text):
+    sections = re.findall(r'^(={2,})\s*(.*?)\s*\1$', text, flags=re.MULTILINE)
+    return [(sec, len(level) - 1) for level, sec in sections]
 
-    return sects
-
-# 出力（1行ずつ表示）
-for name, level in extract_sects():
-    print(f'{name} (レベル{level})')
+print(extract_sections)

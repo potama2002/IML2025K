@@ -1,15 +1,19 @@
-import json
-import gzip
 import re
+import gzip
+import json
 
-def load_uk():
-    with gzip.open('jawiki-country.json.gz', 'rt', encoding='utf-8') as file:
-        for item in file:
-            d = json.loads(item)
-            if d['title'] == 'イギリス':
-                return d['text']
+def extract_uk_article(file_path):
+    with gzip.open(file_path, 'rt', encoding='utf-8') as f:
+        for line in f:
+            data = json.loads(line)
+            if data.get('title') == 'イギリス':
+                return data.get('text')
 
-def extract_categ_lines():
-    return re.findall(r'.*Category.*', load_uk())
+file_path = 'jawiki-country.json.gz'
+uk_text = extract_uk_article(file_path)
 
-print(*extract_categ_lines(), sep='\n')  # 各行を改行して表示
+def extract_category_lines(text):
+    return [line for line in text.split('\n') if re.search(r'\[\[Category:', line)]
+
+print(extract_category_lines)
+
