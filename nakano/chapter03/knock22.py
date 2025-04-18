@@ -33,8 +33,9 @@ if __name__ == "__main__":
     filepath =  'json/jawiki-country.json'
     target_title = 'イギリス'
 
-
-    articles = find_key_in_dictlist(filepath, target_title)
+    # タイトルがイギリスの記事を取得
+    articles:list[str] = find_key_in_dictlist(filepath, target_title)
+    
 
     for idx, article in enumerate(articles, start=1):
         print(f"--- 記事 {idx} のカテゴリ名 ---")
