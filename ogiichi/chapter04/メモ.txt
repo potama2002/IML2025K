@@ -1,0 +1,15 @@
+＜環境構築＞
+
+・Mecab
+　　1. brew install mecab
+　　2. pip install mecab-python3
+
+・cabocha
+　　1. brew install cabocha
+　　2. pip install cabocha-python
+
+＜Mecab＞
+　形態素分析に使用
+
+＜cabocha＞
+　構文解析に使用
