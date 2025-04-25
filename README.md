@@ -22,7 +22,7 @@ git checkout <b_name>
 git add <任意のファイル・フォルダ> (e.g. git add ./kamoto/chapter01/knock01.py)
 git commit -m "your message"
 git pull origin main
-git push origin <b_name>
+git push -f origin <b_name>
 ```
 ## 注意事項
 test
