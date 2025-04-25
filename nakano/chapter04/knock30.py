@@ -14,7 +14,7 @@ def extract_verbs(text: str):
     CaboChaを使ってテキストを解析し、動詞リストを返す。
     """
     parser = CaboCha.Parser()
-    tree = parser.parse(text)
+    tree: CaboCha.Tree= parser.parse(text)
 
     verbs = []
 
