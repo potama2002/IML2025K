@@ -2,7 +2,7 @@ import re
 from typing import Dict
 from knock20 import find_key_in_dictlist
 from knock25 import extract_basic_info
-from knock26 import remove_emphasis_markup
+from knock26 import remove_emphasis_markup 
 from knock27 import remove_internal_links
 
 def remove_markup(text: str) -> str:
@@ -42,14 +42,15 @@ def fully_clean_basic_info(basic_info: Dict[str, str]) -> Dict[str, str]:
 if __name__ == "__main__":
     filepath = 'json/jawiki-country.json'
     key = 'イギリス'
-
+    
+    #①Get テキストを取得
     articles = find_key_in_dictlist(filepath, key)
-
+    
     for idx, article in enumerate(articles, start=1):
         print(f"--- 記事 {idx} の基礎情報（完全マークアップ除去後）---")
-        # Extract 基礎情報（未加工）
+        #② Extract 基礎情報（未加工）
         basic_info = extract_basic_info(article)
-
+        #③ Remove マークアップ
         cleaned_info = fully_clean_basic_info(basic_info)
 
         for field, value in cleaned_info.items():
