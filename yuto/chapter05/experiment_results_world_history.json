@@ -1,0 +1,42 @@
+{
+  "標準設定": {
+    "correct_count": 9,
+    "total_questions": 10,
+    "accuracy": 90.0
+  },
+  "低温度": {
+    "correct_count": 9,
+    "total_questions": 10,
+    "accuracy": 90.0
+  },
+  "高温度": {
+    "correct_count": 9,
+    "total_questions": 10,
+    "accuracy": 90.0
+  },
+  "詳細プロンプト": {
+    "correct_count": 9,
+    "total_questions": 10,
+    "accuracy": 90.0
+  },
+  "簡潔プロンプト": {
+    "correct_count": 0,
+    "total_questions": 10,
+    "accuracy": 0.0
+  },
+  "選択肢シャッフル": {
+    "correct_count": 9,
+    "total_questions": 10,
+    "accuracy": 90.0
+  },
+  "数字記号": {
+    "correct_count": 9,
+    "total_questions": 10,
+    "accuracy": 90.0
+  },
+  "正解をDに固定": {
+    "correct_count": 9,
+    "total_questions": 10,
+    "accuracy": 90.0
+  }
+}

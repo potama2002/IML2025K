@@ -4,6 +4,8 @@ import csv
 from dotenv import load_dotenv
 from pathlib import Path
 import random
+import time
+import json
 
 # 環境変数からAPIキーを読み込む
 load_dotenv()
@@ -145,8 +147,53 @@ def shuffle_choices(choices, answer):
     return new_choices, new_answer
 
 
+def force_answer_to_d(choices, answer):
+    """正解の選択肢をDに移動する"""
+    ans_idx = ord(answer) - ord("A")
+    correct_choice = choices[ans_idx]
+    
+    # 現在のD選択肢を取得
+    d_choice = choices[3]
+    
+    # 新しい選択肢配列を作成
+    new_choices = choices.copy()
+    
+    # 元の正解選択肢をD選択肢で置き換え
+    new_choices[ans_idx] = d_choice
+    
+    # D選択肢を正解に置き換え
+    new_choices[3] = correct_choice
+    
+    return new_choices, "D"
+
+
+def save_cache(cache, filename):
+    """キャッシュをファイルに保存する"""
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+        print(f"キャッシュを保存しました: {len(cache)}件のエントリ")
+    except Exception as e:
+        print(f"キャッシュの保存に失敗しました: {e}")
+
+
+def load_cache(filename):
+    """キャッシュをファイルから読み込む"""
+    if not os.path.exists(filename):
+        return {}
+        
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        print(f"キャッシュを読み込みました: {len(cache)}件のエントリ")
+        return cache
+    except Exception as e:
+        print(f"キャッシュの読み込みに失敗しました: {e}")
+        return {}
+
+
 def evaluate_model_with_settings(subject_key, settings, num_questions=10):
-    """異なる設定でモデルの評価を行う"""
+    """異なる設定でモデルの評価を行う（APIレート制限回避機能付き）"""
     # 科目名の取得
     if subject_key not in AVAILABLE_SUBJECTS:
         print(f"エラー: 科目 '{subject_key}' は利用できません。")
@@ -154,6 +201,9 @@ def evaluate_model_with_settings(subject_key, settings, num_questions=10):
         for key, name in AVAILABLE_SUBJECTS.items():
             print(f"  - {key}: {name}")
         return
+
+    subject_name = AVAILABLE_SUBJECTS[subject_key]
+    print(f"科目: {subject_name}")
 
     # データセットのパスを設定
     dataset_path = Path(f"JMMLU/JMMLU/{subject_key}.csv")
@@ -168,17 +218,22 @@ def evaluate_model_with_settings(subject_key, settings, num_questions=10):
         return
 
     # 評価する問題数を制限
-    questions = questions[:num_questions]
+    if num_questions is None or num_questions > len(questions):
+        questions = questions[:len(questions)]
+    else:
+        questions = questions[:num_questions]
 
     # 各設定での結果を格納する辞書
     results = {}
+    
+    # キャッシュの初期化
+    cache_file = f"cache_{subject_key}.json"
+    cache = load_cache(cache_file)
 
     # 各設定で評価
     for setting_name, setting in settings.items():
         print(f"\n設定: {setting_name}")
-        print(
-            f"温度: {setting.get('temperature', 0.7)}, プロンプトタイプ: {setting.get('prompt_type', 'standard')}"
-        )
+        print(f"温度: {setting.get('temperature', 0.7)}, プロンプトタイプ: {setting.get('prompt_type', 'standard')}")
 
         # モデルの設定
         model = genai.GenerativeModel(
@@ -188,34 +243,97 @@ def evaluate_model_with_settings(subject_key, settings, num_questions=10):
 
         correct_count = 0
         total_questions = len(questions)
+        
+        # バッチ処理のための設定
+        batch_size = 3  # 一度に処理する問題数
+        batch_wait = 10  # バッチ間の待機時間（秒）
+        
+        # 応答の記録（分析用）
+        responses = []
 
-        for i, q in enumerate(questions, 1):
-            # 選択肢の順番をシャッフルするかどうか
-            if setting.get("shuffle_choices", False):
-                shuffled_choices, shuffled_answer = shuffle_choices(
-                    q["choices"], q["answer"]
-                )
-                choices = shuffled_choices
-                answer = shuffled_answer
-            else:
-                choices = q["choices"]
+        # バッチ処理
+        for batch_start in range(0, total_questions, batch_size):
+            batch_end = min(batch_start + batch_size, total_questions)
+            batch = questions[batch_start:batch_end]
+            
+            print(f"\nバッチ処理: {batch_start+1}～{batch_end}/{total_questions}")
+
+            for i, q in enumerate(batch, 1):
+                q_idx = batch_start + i - 1  # 全体における問題のインデックス
+                
+                # 選択肢の処理
+                choices = q["choices"].copy()  # 元の配列を変更しないようコピー
                 answer = q["answer"]
+                
+                # 選択肢の順番をシャッフルするかどうか
+                if setting.get("shuffle_choices", False):
+                    choices, answer = shuffle_choices(choices, answer)
+                
+                # 正解をDに入れ替えるかどうか
+                if setting.get("force_answer_to_d", False):
+                    choices, answer = force_answer_to_d(choices, answer)
+                
+                # 選択肢の記号を変更するかどうか
+                choice_symbols = setting.get("choice_symbols", ["A", "B", "C", "D"])
 
-            # 選択肢の記号を変更するかどうか
-            choice_symbols = setting.get("choice_symbols", ["A", "B", "C", "D"])
-
-            # プロンプトの作成
-            prompt = create_prompt(
-                q["question"],
-                choices,
-                setting.get("prompt_type", "standard"),
-                choice_symbols,
-            )
-
-            try:
-                # APIリクエストの送信
-                response = model.generate_content(prompt)
-                model_answer = response.text.strip().upper()
+                # プロンプトの作成
+                prompt = create_prompt(
+                    q["question"],
+                    choices,
+                    setting.get("prompt_type", "standard"),
+                    choice_symbols,
+                )
+                
+                # キャッシュキーの作成
+                cache_key = f"{setting_name}_{q['question']}_{','.join(choices)}"
+                
+                # APIリクエストの試行回数
+                max_retries = 3
+                retry_count = 0
+                
+                # キャッシュに存在する場合はそれを使用
+                if cache_key in cache:
+                    model_answer = cache[cache_key]
+                    print(f"\rキャッシュから回答を取得: {model_answer}", end="")
+                else:
+                    # リクエスト間のウェイト
+                    if q_idx > batch_start:
+                        time.sleep(2)  # 同じバッチ内の前のリクエストから2秒待機
+                    
+                    # API呼び出しと再試行ロジック
+                    while retry_count < max_retries:
+                        try:
+                            # APIリクエストの送信
+                            response = model.generate_content(prompt)
+                            model_answer = response.text.strip().upper()
+                            
+                            # キャッシュに保存
+                            cache[cache_key] = model_answer
+                            if q_idx % 5 == 0:  # 5問ごとにキャッシュを保存
+                                save_cache(cache, cache_file)
+                                
+                            break  # 成功したらループを抜ける
+                            
+                        except Exception as e:
+                            retry_count += 1
+                            if retry_count < max_retries:
+                                wait_time = 5 * retry_count  # リトライごとに待機時間を増やす
+                                print(f"\nAPIエラー: {e}. {wait_time}秒待機してリトライします ({retry_count}/{max_retries})")
+                                time.sleep(wait_time)
+                            else:
+                                print(f"\n最大リトライ回数に達しました。エラー: {e}")
+                                model_answer = "ERROR"  # エラーの場合は不正解としてカウント
+                
+                # 応答を記録
+                responses.append({
+                    "question_idx": q_idx,
+                    "question": q["question"],
+                    "original_choices": q["choices"],
+                    "presented_choices": choices,
+                    "original_answer": q["answer"],
+                    "expected_answer": answer,
+                    "model_answer": model_answer
+                })
 
                 # 選択肢の記号が変更されている場合、回答を変換
                 if choice_symbols != ["A", "B", "C", "D"]:
@@ -230,15 +348,13 @@ def evaluate_model_with_settings(subject_key, settings, num_questions=10):
                 correct_count += int(is_correct)
 
                 # 進捗表示
-                print(
-                    f"\r進捗: {i}/{total_questions} (正解率: {correct_count / i * 100:.1f}%)",
-                    end="",
-                )
+                print(f"\r進捗: {q_idx+1}/{total_questions} (正解率: {correct_count / (q_idx+1) * 100:.1f}%)", end="")
 
-            except Exception as e:
-                print(f"\nエラー: {e}")
-                continue
-
+            # バッチ間の待機（最後のバッチ以外）
+            if batch_end < total_questions:
+                print(f"\nAPIレート制限回避のため {batch_wait}秒 待機します...")
+                time.sleep(batch_wait)
+        
         # 最終結果の表示
         final_accuracy = correct_count / total_questions * 100
         print("\n\n評価結果:")
@@ -250,9 +366,49 @@ def evaluate_model_with_settings(subject_key, settings, num_questions=10):
             "correct_count": correct_count,
             "total_questions": total_questions,
             "accuracy": final_accuracy,
+            "responses": responses
         }
-
+        
+        # 設定間の待機
+        if setting_name != list(settings.keys())[-1]:  # 最後の設定でなければ
+            print(f"\n次の設定に進む前に30秒待機します...")
+            time.sleep(30)
+    
+    # 最終的なキャッシュの保存
+    save_cache(cache, cache_file)
+    
+    # 回答の分布を分析
+    analyze_answer_distribution(results)
+            
     return results
+
+
+def analyze_answer_distribution(results):
+    """回答の分布を分析する"""
+    print("\n回答分布の分析:")
+    
+    for setting_name, result in results.items():
+        if "responses" not in result:
+            continue
+            
+        responses = result["responses"]
+        
+        # 回答の分布をカウント
+        answer_counts = {"A": 0, "B": 0, "C": 0, "D": 0, "ERROR": 0, "OTHER": 0}
+        
+        for resp in responses:
+            model_answer = resp["model_answer"]
+            if model_answer in answer_counts:
+                answer_counts[model_answer] += 1
+            else:
+                answer_counts["OTHER"] += 1
+        
+        # 分布の表示
+        print(f"\n設定: {setting_name}")
+        total = sum(answer_counts.values())
+        for answer, count in answer_counts.items():
+            percentage = (count / total) * 100 if total > 0 else 0
+            print(f"{answer}: {count} ({percentage:.1f}%)")
 
 
 def run_experiments(subject_key, num_questions=10):
@@ -301,23 +457,66 @@ def run_experiments(subject_key, num_questions=10):
             "shuffle_choices": False,
             "choice_symbols": ["1", "2", "3", "4"],
         },
+        "正解をDに固定": {
+            "temperature": 0.7,
+            "prompt_type": "standard",
+            "shuffle_choices": False,
+            "force_answer_to_d": True,
+            "choice_symbols": ["A", "B", "C", "D"],
+        },
     }
+
+    # 実験結果を保存するファイル名
+    results_file = f"experiment_results_{subject_key}.json"
 
     # 評価実行
     results = evaluate_model_with_settings(subject_key, settings, num_questions)
 
     # 結果の比較
     print("\n\n実験結果の比較:")
-    print("=" * 50)
-    print(f"{'設定名':<15} {'正解数':<10} {'正解率':<10}")
-    print("-" * 50)
+    print("=" * 60)
+    print(f"{'設定名':<20} {'正解数':<10} {'正解率':<10}")
+    print("-" * 60)
 
     for setting_name, result in results.items():
         print(
-            f"{setting_name:<15} {result['correct_count']}/{result['total_questions']:<10} {result['accuracy']:.1f}%"
+            f"{setting_name:<20} {result['correct_count']}/{result['total_questions']:<10} {result['accuracy']:.1f}%"
         )
 
-    print("=" * 50)
+    print("=" * 60)
+    
+    # 結果をファイルに保存
+    try:
+        with open(results_file, "w", encoding="utf-8") as f:
+            # 保存前に各設定からresponses項目を削除（サイズ削減のため）
+            save_results = {}
+            for setting_name, result in results.items():
+                save_results[setting_name] = {
+                    "correct_count": result["correct_count"],
+                    "total_questions": result["total_questions"],
+                    "accuracy": result["accuracy"]
+                }
+            json.dump(save_results, f, ensure_ascii=False, indent=2)
+        print(f"\n実験結果を保存しました: {results_file}")
+    except Exception as e:
+        print(f"\n実験結果の保存に失敗しました: {e}")
+    
+    # CSVファイルにも保存
+    csv_file = f"experiment_results_{subject_key}.csv"
+    try:
+        with open(csv_file, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["設定名", "正解数", "問題数", "正解率"])
+            for setting_name, result in results.items():
+                writer.writerow([
+                    setting_name, 
+                    result["correct_count"], 
+                    result["total_questions"], 
+                    f"{result['accuracy']:.1f}%"
+                ])
+        print(f"実験結果をCSVファイルにも保存しました: {csv_file}")
+    except Exception as e:
+        print(f"CSVファイルの保存に失敗しました: {e}")
 
 
 if __name__ == "__main__":
@@ -327,6 +526,7 @@ if __name__ == "__main__":
     num_questions = 10  # 実験用に少ない問題数で実行
 
     run_experiments(subject, num_questions)
+
 
     """科目: 世界史
 
